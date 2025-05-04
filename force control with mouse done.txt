@@ -1,0 +1,144 @@
+using UnityEngine;
+using System.Collections;  
+
+public class BallController : MonoBehaviour
+{
+    public Transform ballPosition;  
+    public Transform targetPosition;  
+    public Transform groundPosition;
+
+    public Vector3 initialPosition;
+    public float dropForce = 7.5f; 
+    public float initialThrowForce = 0.39f;  
+    public float initialArcHeight = 0.57f;  
+    public float forceMultiplier = 1.01f;  
+    public float additionalForceMultiplier = 2.56f;  
+    public float additionalArcHeight = 8.03f;  
+    public float resetDelay = 2.08f; 
+
+    private Rigidbody rb;  
+    private int dropCount = 0;  
+
+    private float mouseDownTime;  
+    private bool isMouseDown;  
+
+    //start
+    void Start()
+    {
+        rb = GetComponent<Rigidbody>();
+        initialPosition = transform.position;
+        ResetBall();  
+    }
+
+    // Click
+
+    void Update()
+    {
+        
+        if (Input.GetMouseButtonDown(0))
+        {
+            isMouseDown = true; 
+            mouseDownTime = Time.time; 
+            //rb.isKinematic = false; 
+        }
+
+       
+        if (Input.GetMouseButtonUp(0) && isMouseDown)
+        {
+            isMouseDown = false; 
+            float holdDuration = Time.time - mouseDownTime;  
+            rb.isKinematic = false;
+            ThrowBall(holdDuration);  
+        }
+
+       
+        if (CheckOutOfBounds())
+        {
+            Debug.Log("Resetting Ball: Out of Bounds");
+            StartCoroutine(ResetBallWithDelay());
+        }
+    }
+
+
+    // Adforce & Direction
+    void ThrowBall(float holdDuration)
+    {
+        
+        Vector3 direction = (targetPosition.position - transform.position);
+       
+        float throwForce = initialThrowForce + (holdDuration * forceMultiplier);
+        float arcHeight = initialArcHeight;
+
+        if (dropCount == 1)  
+        {
+            throwForce *= additionalForceMultiplier; 
+            arcHeight += additionalArcHeight; 
+        }
+
+       
+        Vector3 throwDirection = new Vector3(direction.x, direction.y + arcHeight, direction.z);
+        rb.AddForce(throwDirection * throwForce, ForceMode.Impulse);
+    }
+
+
+    // Check is ok?
+    bool CheckOutOfBounds()
+    {
+        
+        if (transform.position.y < -1f ||
+            transform.position.x < groundPosition.position.x - 10f ||
+            transform.position.x > groundPosition.position.x + 10f)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    // Delay
+    void delay_next()
+    {
+        rb.velocity = Vector3.zero;  
+        rb.angularVelocity = Vector3.zero;  
+        StartCoroutine(ResetBallWithDelay());
+    }
+
+    IEnumerator ResetBallWithDelay()
+    {
+        yield return new WaitForSeconds(resetDelay);  
+        ResetBall(); 
+    }
+
+    // Reset
+    void ResetBall()
+    {
+        Debug.Log("Reset");
+        transform.position = initialPosition; 
+
+        dropCount = 0;  
+        rb.isKinematic = true; 
+    }
+
+    // Collision Control
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Ground"))
+        {
+           
+            Debug.Log("Grounded! ");
+            dropCount++;
+            ThrowBall(0); 
+        }
+
+        if (collision.gameObject.CompareTag("Target"))
+        {
+            Debug.Log("Target Hit!");
+            delay_next();
+        }
+
+        if (collision.gameObject.CompareTag("Stand"))
+        {
+            Debug.Log("Stand hit!");
+            delay_next();
+        }
+    }
+}
